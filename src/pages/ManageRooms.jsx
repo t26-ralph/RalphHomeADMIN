@@ -18,6 +18,10 @@ export default function ManageRooms() {
     const [imagesToDelete, setImagesToDelete] = useState([]);
     const [confirmDeleteDialog, setConfirmDeleteDialog] = useState({ open: false, roomId: null });
     const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+    // LOADING STATES
+    const [loadingList, setLoadingList] = useState(true);
+    const [loadingSave, setLoadingSave] = useState(false);
+    const [loadingDelete, setLoadingDelete] = useState(false);
     const truncateWords = (text, maxWords = 50) => {
         if (!text) return "";
         const words = text.split(" ");
@@ -30,8 +34,16 @@ export default function ManageRooms() {
     }, []);
 
     const fetchRooms = async () => {
-        try { const res = await axiosClient.get("/rooms"); setRooms(res.data); }
-        catch (err) { console.error(err); }
+        try { 
+            setLoadingList(true);
+            const res = await axiosClient.get("/rooms"); 
+            setRooms(res.data); 
+        }
+        catch (err) { 
+            console.error(err); 
+        } finally{
+            setLoadingList(false);
+        }
     };
 
     const fetchHotels = async () => {
@@ -55,6 +67,7 @@ export default function ManageRooms() {
 
     const handleSaveRoom = async () => {
         try {
+            setLoadingSave(true);
             const formData = new FormData();
             formData.append("name", currentRoom.name);
             formData.append("price", currentRoom.price);
@@ -80,6 +93,8 @@ export default function ManageRooms() {
         } catch (err) {
             console.error(err);
             setSnackbar({ open: true, message: "Thao tác thất bại, kiểm tra backend!", severity: "error" });
+        } finally {
+            setLoadingSave(false);
         }
     };
 
@@ -87,6 +102,7 @@ export default function ManageRooms() {
 
     const confirmDeleteRoom = async () => {
         try {
+            setLoadingDelete(true);
             await axiosClient.delete(`/rooms/${confirmDeleteDialog.roomId}`);
             fetchRooms();
             setSnackbar({ open: true, message: "Xóa phòng thành công", severity: "success" });
@@ -94,6 +110,7 @@ export default function ManageRooms() {
             console.error(err);
             setSnackbar({ open: true, message: "Xóa phòng thất bại", severity: "error" });
         } finally {
+            setLoadingDelete(false);
             setConfirmDeleteDialog({ open: false, roomId: null });
         }
     };
@@ -112,58 +129,67 @@ export default function ManageRooms() {
                 Add Room
             </button>
 
-            <div className="overflow-x-auto">
-                <table className="min-w-full border border-gray-200 rounded-lg">
-                    <thead className="bg-gray-100">
-                        <tr>
-                            <th className="py-2 px-4 border text-left">Hotel</th>
-                            <th className="py-2 px-4 border text-left">Name</th>
-                            <th className="py-2 px-4 border text-left">Price</th>
-                            <th className="py-2 px-4 border text-left">Max People</th>
-                            <th className="py-2 px-4 border text-left">Description</th>
-                            <th className="py-2 px-4 border text-center">Available</th>
-                            <th className="py-2 px-4 border text-center">Images</th>
-                            <th className="py-2 px-4 border text-center">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rooms.map(room => (
-                            <tr key={room._id} className="hover:bg-gray-50">
-                                <td className="py-2 px-4 border">{room.hotel?.name || "N/A"}</td>
-                                <td className="py-2 px-4 border">{room.name}</td>
-                                <td className="py-2 px-4 border">{room.price}</td>
-                                <td className="py-2 px-4 border">{room.maxPeople}</td>
-                                <td className="py-2 px-4 text-sm text-gray-700 cursor-help" 
-                                title={room.description}
-                                >
-                                    {truncateWords(room.description, 30)}</td>
-                                <td className="py-2 px-4 border text-center">{room.available ? "Yes" : "No"}</td>
-                                <td className="py-2 px-4 border text-center">
-                                    <div className="flex justify-center flex-wrap gap-1">
-                                        {room.images?.map((img, idx) => (
-                                            <img key={idx} src={img} alt="room" className="w-16 h-12 object-cover rounded" />
-                                        ))}
-                                    </div>
-                                </td>
-                                <td className="py-2 px-4 border text-center">
-                                    <button
-                                        className="px-2 py-1 mr-1 border rounded hover:bg-gray-100"
-                                        onClick={() => handleOpenDialog(room)}
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        className="px-2 py-1 border rounded text-red-600 hover:bg-red-100"
-                                        onClick={() => handleDeleteRoom(room._id)}
-                                    >
-                                        Delete
-                                    </button>
-                                </td>
+            {loadingList ? (
+                <div className="space-y-2">
+                    {[...Array(5)].map((_, i) => (
+                        <div key={i} className="h-10 bg-gray-200 animate-pulse rounded" />
+                    ))}
+                </div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full border border-gray-200 rounded-lg">
+                        <thead className="bg-gray-100">
+                            <tr>
+                                <th className="py-2 px-4 border">Hotel</th>
+                                <th className="py-2 px-4 border">Name</th>
+                                <th className="py-2 px-4 border">Price</th>
+                                <th className="py-2 px-4 border">Max People</th>
+                                <th className="py-2 px-4 border">Description</th>
+                                <th className="py-2 px-4 border">Available</th>
+                                <th className="py-2 px-4 border">Images</th>
+                                <th className="py-2 px-4 border">Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            {rooms.map(room => (
+                                <tr key={room._id}>
+                                    <td className="py-2 px-4 border">{room.hotel?.name || "N/A"}</td>
+                                    <td className="py-2 px-4 border">{room.name}</td>
+                                    <td className="py-2 px-4 border">{room.price}</td>
+                                    <td className="py-2 px-4 border">{room.maxPeople}</td>
+                                    <td className="py-2 px-4 border text-sm">
+                                        {truncateWords(room.description, 30)}
+                                    </td>
+                                    <td className="py-2 px-4 border text-center">
+                                        {room.available ? "Yes" : "No"}
+                                    </td>
+                                    <td className="py-2 px-4 border text-center">
+                                        <div className="flex flex-wrap gap-1 mb-2">
+                                            {room.images?.map((img, idx) => (
+                                                <img key={idx} src={img} loading="lazy" className="w-14 h-10 object-cover rounded" />
+                                            ))}
+                                        </div>
+                                    </td>
+                                    <td className="py-2 px-4 border text-center">
+                                        <button
+                                            className="px-2 py-1 mr-2 border rounded"
+                                            onClick={() => handleOpenDialog(room)}
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            className="px-2 py-1 border rounded text-red-600"
+                                            onClick={() => handleDeleteRoom(room._id)}
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* Dialog */}
             {openDialog && (
@@ -230,8 +256,18 @@ export default function ManageRooms() {
                         </div>
 
                         <div className="flex justify-end mt-4 gap-2">
-                            <button className="px-4 py-2 border rounded" onClick={handleCloseDialog}>Cancel</button>
-                            <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onClick={handleSaveRoom}>Save</button>
+                            <button 
+                            className="px-4 py-2 border rounded" 
+                            onClick={handleCloseDialog}>
+                                Cancel</button>
+                            <button
+                                onClick={handleSaveRoom}
+                                disabled={loadingSave}
+                                className={`px-4 py-2 text-white rounded 
+                                ${loadingSave ? "bg-gray-400" : "bg-blue-600"}`}
+                            >
+                                {loadingSave ? "Saving..." : "Save"}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -244,8 +280,18 @@ export default function ManageRooms() {
                         <h2 className="text-lg font-bold mb-4">Confirm Delete</h2>
                         <p className="mb-4">Are you sure you want to delete this room? This action cannot be undone.</p>
                         <div className="flex justify-end gap-2">
-                            <button className="px-4 py-2 border rounded" onClick={() => setConfirmDeleteDialog({ open: false, roomId: null })}>Cancel</button>
-                            <button className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700" onClick={confirmDeleteRoom}>Delete</button>
+                            <button 
+                            className="px-4 py-2 border rounded" 
+                            onClick={() => setConfirmDeleteDialog({ open: false, roomId: null })}
+                            >Cancel</button>
+                            <button
+                                onClick={confirmDeleteRoom}
+                                disabled={loadingDelete}
+                                className={`px-4 py-2 text-white rounded 
+                                ${loadingDelete ? "bg-gray-400" : "bg-red-600"}`}
+                            >
+                                {loadingDelete ? "Deleting..." : "Delete"}
+                            </button>
                         </div>
                     </div>
                 </div>
