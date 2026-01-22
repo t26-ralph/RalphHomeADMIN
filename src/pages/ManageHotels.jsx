@@ -23,18 +23,36 @@ export default function ManageHotels() {
         if (words.length <= maxWords) return text;
         return words.slice(0, maxWords).join(" ") + "...";
     };
+    const [loadingList, setLoadingList] = useState(true);
+    const [loadingSave, setLoadingSave] = useState(false);
+    const [loadingDelete, setLoadingDelete] = useState(false);
+
+    useEffect(() => {
+        if (snackbar.open) {
+            const timer = setTimeout(() => {
+                setSnackbar((prev) => ({ ...prev, open: false }));
+            }, 3000); // 3000ms = 3 giây
+
+            return () => clearTimeout(timer);
+        }
+    }, [snackbar.open]);
+
     useEffect(() => {
         fetchHotels();
     }, []);
 
     const fetchHotels = async () => {
         try {
+            setLoadingList(true);
             const res = await axiosClient.get("/hotels");
             setHotels(res.data);
         } catch (err) {
             console.error(err);
+        } finally {
+            setLoadingList(false);
         }
     };
+
 
     const handleOpenDialog = (hotel = { name: "", address: "", city: "", description: "", images: [] }) => {
         setCurrentHotel(hotel);
@@ -69,6 +87,7 @@ export default function ManageHotels() {
 
     const handleSaveHotel = async () => {
         try {
+            setLoadingSave(true);
             const formData = new FormData();
             formData.append("name", currentHotel.name);
             formData.append("address", currentHotel.address);
@@ -95,6 +114,8 @@ export default function ManageHotels() {
         } catch (err) {
             console.error(err);
             setSnackbar({ open: true, message: "Thao tác thất bại, kiểm tra backend!", severity: "error" });
+        }finally{
+            setLoadingSave(false);
         }
     };
 
@@ -104,6 +125,7 @@ export default function ManageHotels() {
 
     const confirmDeleteHotel = async () => {
         try {
+            setLoadingDelete(true);
             await axiosClient.delete(`/hotels/${confirmDialog.hotelId}`);
             setSnackbar({ open: true, message: "Xóa hotel thành công!", severity: "success" });
             fetchHotels();
@@ -111,6 +133,7 @@ export default function ManageHotels() {
             console.error(err);
             setSnackbar({ open: true, message: "Xóa hotel thất bại!", severity: "error" });
         } finally {
+            setLoadingDelete(false);
             setConfirmDialog({ open: false, hotelId: null });
         }
     };
@@ -126,70 +149,79 @@ export default function ManageHotels() {
             </button>
 
             <div className="overflow-x-auto">
-                <table className="min-w-full bg-white border rounded shadow">
-                    <thead className="bg-gray-100">
-                        <tr>
-                            <th className="py-2 px-4 border text-left">Name</th>
-                            <th className="py-2 px-4 border text-left">City</th>
-                            <th className="py-2 px-4 border text-left">Address</th>
-                            <th className="py-2 px-4 border text-left">Description</th>
-                            <th className="py-2 px-4 border text-center">Cover Image</th>
-                            <th className="py-2 px-4 border text-center">Gallery</th>
-                            <th className="py-2 px-4 border text-center">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {hotels.map((hotel) => (
-                            <tr key={hotel._id} className="hover:bg-gray-50">
-                                <td className="py-2 px-4">{hotel.name}</td>
-                                <td className="py-2 px-4">{hotel.city}</td>
-                                <td className="py-2 px-4">{hotel.address}</td>
-                                <td
-                                    className="py-2 px-4 text-sm text-gray-700 cursor-help"
-                                    title={hotel.description}
-                                >
-                                    {truncateWords(hotel.description, 30)}
-                                </td>
+                {loadingList ? (
+                    <div className="text-center py-10 text-gray-500">
+                        Đang tải danh sách khách sạn...
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                            <table className="min-w-full bg-white border rounded shadow">
+                                <thead className="bg-gray-100">
+                                    <tr>
+                                        <th className="py-2 px-4 border text-left">Name</th>
+                                        <th className="py-2 px-4 border text-left">City</th>
+                                        <th className="py-2 px-4 border text-left">Address</th>
+                                        <th className="py-2 px-4 border text-left">Description</th>
+                                        <th className="py-2 px-4 border text-center">Cover Image</th>
+                                        <th className="py-2 px-4 border text-center">Gallery</th>
+                                        <th className="py-2 px-4 border text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {hotels.map((hotel) => (
+                                        <tr key={hotel._id} className="hover:bg-gray-50">
+                                            <td className="py-2 px-4">{hotel.name}</td>
+                                            <td className="py-2 px-4">{hotel.city}</td>
+                                            <td className="py-2 px-4">{hotel.address}</td>
+                                            <td
+                                                className="py-2 px-4 text-sm text-gray-700 cursor-help"
+                                                title={hotel.description}
+                                            >
+                                                {truncateWords(hotel.description, 30)}
+                                            </td>
 
-                                <td className="py-2 px-4 text-center">
-                                    {hotel.coverImage && (
-                                        <img
-                                            src={hotel.coverImage}
-                                            alt="cover"
-                                            className="w-24 h-16 object-cover rounded"
-                                        />
-                                    )}
-                                </td>
-                                <td className="py-2 px-4 border text-center">
-                                    <div className="flex justify-center flex-wrap gap-1">
-                                        {hotel.images?.map((img, idx) => (
-                                            <img
-                                                key={idx}
-                                                src={img}
-                                                alt="hotel"
-                                                className="w-16 h-12 object-cover rounded"
-                                            />
-                                        ))}
-                                    </div>
-                                </td>
-                                <td className="py-2 px-4 border text-center">
-                                    <button
-                                        className="px-2 py-1 mr-1 border rounded hover:bg-gray-100"
-                                        onClick={() => handleOpenDialog(hotel)}
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        className="px-2 py-1 border rounded text-red-600 hover:bg-red-100"
-                                        onClick={() => handleDeleteHotel(hotel._id)}
-                                    >
-                                        Delete
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                            <td className="py-2 px-4 text-center">
+                                                {hotel.coverImage && (
+                                                    <img
+                                                        src={hotel.coverImage}
+                                                        alt="cover"
+                                                        className="w-24 h-16 object-cover rounded"
+                                                    />
+                                                )}
+                                            </td>
+                                            <td className="py-2 px-4 border text-center">
+                                                <div className="flex justify-center flex-wrap gap-1">
+                                                    {hotel.images?.map((img, idx) => (
+                                                        <img
+                                                            key={idx}
+                                                            src={img}
+                                                            alt="hotel"
+                                                            className="w-16 h-12 object-cover rounded"
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </td>
+                                            <td className="py-2 px-4 border text-center">
+                                                <button
+                                                    className="px-2 py-1 mr-1 border rounded hover:bg-gray-100"
+                                                    onClick={() => handleOpenDialog(hotel)}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    className="px-2 py-1 border rounded text-red-600 hover:bg-red-100"
+                                                    onClick={() => handleDeleteHotel(hotel._id)}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                    </div>
+                )}
+
             </div>
 
             {/* Dialog thêm/sửa hotel */}
@@ -249,7 +281,7 @@ export default function ManageHotels() {
                                         onClick={() => handleDeleteExistingImage(img)}
                                         className="absolute bottom-0 right-0 text-red-600 bg-white rounded-full px-1 text-sm"
                                     >
-                                        ×
+                                        X
                                     </button>
                                 </div>
                             ))}
@@ -262,10 +294,13 @@ export default function ManageHotels() {
                             </button>
                             <button
                                 onClick={handleSaveHotel}
-                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                disabled={loadingSave}
+                                className={`px-4 py-2 text-white rounded 
+                                    ${loadingSave ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
                             >
-                                Save
+                                {loadingSave ? "Saving..." : "Save"}
                             </button>
+
                         </div>
                     </div>
                 </div>
@@ -286,10 +321,13 @@ export default function ManageHotels() {
                             </button>
                             <button
                                 onClick={confirmDeleteHotel}
-                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                                disabled={loadingDelete}
+                                className={`px-4 py-2 text-white rounded 
+                                    ${loadingDelete ? "bg-gray-400 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"}`}
                             >
-                                Xác nhận
+                                {loadingDelete ? "Đang xóa..." : "Xác nhận"}
                             </button>
+
                         </div>
                     </div>
                 </div>
